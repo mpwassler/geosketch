@@ -5,14 +5,13 @@ import { compose } from 'redux'
 import { makeFeature, makeFeatureCollection, makeLineString, makeLayer } from '../model/geojson'
 
 const geojsonLineLayer = compose(
-    makeLayer,
     makeFeatureCollection,
     makeFeature,
     makeLineString
 )
 
 const addMapLayer = (map, geometry) => {
-  map.addLayer(geojsonLineLayer(geometry))
+  map.addLayer(makeLayer(geojsonLineLayer(geometry)))
 }
 
 const clearMap = (map) => {
@@ -26,15 +25,20 @@ const clearMap = (map) => {
 const Map = ({ 
   editing, 
   dispatch,
-  shapeDetails
+  shapeDetails  
 }) => {
   const mapEl = useRef(null);
   const [map, setMap] = useState(null) 
   const [mapLoaded, setMapLoaded] = useState(false)    
   if(map) {
     if(mapLoaded) {
-      clearMap(map)
-      addMapLayer(map, shapeDetails)
+      const source = map.getSource('line-animation')
+      if(source) {
+        source.setData(geojsonLineLayer(shapeDetails))
+      } else {
+        addMapLayer(map, shapeDetails)
+
+      }
     }
     
   }
@@ -50,14 +54,17 @@ const Map = ({
     map.on('load', () => { setMapLoaded(true) })
     var clicks = 0
     map.on('click', ({lngLat, point, target}) => {
-      console.log('MAP_POINT_CLICK ', clicks++)            
-      dispatch({
-        type: 'MAP_POINT_CLICK',
-        point: {
-          ...point,
-          ...lngLat
-        }
-      })                  
+      console.log('MAP_POINT_CLICK ', editing())       
+                
+      if(editing()) {
+        dispatch({
+          type: 'MAP_POINT_CLICK',
+          point: {
+            ...point,
+            ...lngLat
+          }
+        })                          
+      }
     })
   }, []); 
   
@@ -66,9 +73,10 @@ const Map = ({
   )
 }
 
-const mapStateToProps = ({appState, shapeDetails}) => ({
-   editing: appState.editing,
-   shapeDetails
+const mapStateToProps = (store) => ({
+   editing: () => {return store.getState().appState.editing},
+   shapeDetails: store.shapeDetails
+
 })
 
 
